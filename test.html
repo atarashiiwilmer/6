@@ -5829,7 +5829,6 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
             xClaimTrans: document.getElementById("xClaimTrans"),
             pendingPosted: document.getElementById("pendingPosted"),
             merchantCreditsTable: document.getElementById("merchantCreditsTable"),
-            similarTransactions: document.getElementById("similarTransactions") || this.createSimilarTransactionsContainer(),
             xTransaction: document.getElementById("xTransaction")
         };
         if (!this.elements.xTransaction) {
@@ -5858,7 +5857,8 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
             container = document.createElement("div");
             container.id = "similarTransactions";
             container.className = "similar-transactions-container";
-            this.elements.xTransaction.parentNode.insertBefore(container, this.elements.xTransaction.nextSibling);
+            if (this.elements.xTransaction && this.elements.xTransaction.parentNode) this.elements.xTransaction.parentNode.insertBefore(container, this.elements.xTransaction.nextSibling);
+            else document.body.appendChild(container);
         }
         return container;
     }
