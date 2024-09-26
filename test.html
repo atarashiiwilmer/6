@@ -3526,7 +3526,7 @@ select:focus, input:focus {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
     <script>// Landing Page
 
-    
+
 function $parcel$export(e, n, v, s) {
   Object.defineProperty(e, n, {get: v, set: s, enumerable: true, configurable: true});
 }
@@ -5894,18 +5894,15 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
         }
     }
     handleNewPaste(pastedContents) {
-        this.pastedContents = pastedContents;
-        // If claim transactions are not set yet, parse them
         if (this.claimTransactions.length === 0) this.parseClaimTransactions();
         else {
-            // If claim transactions are already set, treat new content as non-claim transactions
+            // Parse new content as non-claim transactions
             const newTransactions = this.extractTransactions(pastedContents.join("\n"));
             this.nonClaimTransactions = [
                 ...this.nonClaimTransactions,
                 ...newTransactions
             ];
         }
-        this.compareTransactions();
         this.updateSimilarTransactions();
     }
     parseClaimTransactions() {
@@ -6096,11 +6093,14 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
     }
     updateSimilarTransactions() {
         if (!this.isFraudScenario() || this.claimTransactions.length === 0) return;
-        const oldestDate = new Date(this.oldestClaimTransaction.date);
-        const cutoffDate = new Date(oldestDate.getTime() - 5184000000);
+        const oldestClaimDate = new Date(this.oldestClaimTransaction.date);
+        const cutoffDate = new Date(oldestClaimDate.getTime() - 5184000000);
         const relevantNonClaimTransactions = this.nonClaimTransactions.filter((t)=>new Date(t.date) >= cutoffDate);
         const olderNonClaimTransactions = this.nonClaimTransactions.filter((t)=>new Date(t.date) < cutoffDate);
+        console.log("Oldest Claim Date:", oldestClaimDate);
+        console.log("Cutoff Date:", cutoffDate);
         console.log("Claim Transactions:", this.claimTransactions);
+        console.log("All Non-Claim Transactions:", this.nonClaimTransactions);
         console.log("Relevant Non-Claim Transactions:", relevantNonClaimTransactions);
         console.log("Older Non-Claim Transactions:", olderNonClaimTransactions);
         this.similarTransactions = this.findSimilarTransactions(relevantNonClaimTransactions, olderNonClaimTransactions);
@@ -6122,10 +6122,11 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
     findSimilarTransactions(relevantNonClaimTransactions, olderNonClaimTransactions) {
         const similarGroups = [];
         this.claimTransactions.forEach((claimTx)=>{
-            const similarNonClaims = [
+            const allNonClaimTransactions = [
                 ...relevantNonClaimTransactions,
                 ...olderNonClaimTransactions
-            ].map((nonClaimTx)=>({
+            ];
+            const similarNonClaims = allNonClaimTransactions.map((nonClaimTx)=>({
                     ...nonClaimTx,
                     similarityScore: this.calculateSimilarity(claimTx, nonClaimTx)
                 })).filter((tx)=>tx.similarityScore >= this.similarityThreshold).sort((a, b)=>b.similarityScore - a.similarityScore);
@@ -6141,12 +6142,12 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
         if (nameSimilarity === 0) return 0;
         const amountSimilarity = this.calculateAmountSimilarity(tx1.amount, tx2.amount);
         const timeSimilarity = this.calculateTimeSimilarity(new Date(tx1.date), new Date(tx2.date));
-        return nameSimilarity * 0.6 + amountSimilarity * 0.3 + timeSimilarity * 0.1;
+        return nameSimilarity * 0.8 + amountSimilarity * 0.1 + timeSimilarity * 0.1;
     }
     calculateSimilarity(tx1, tx2) {
         const nameSimilarity = this.calculateNameSimilarity(tx1.description, tx2.description);
         const amountSimilarity = this.calculateAmountSimilarity(tx1.amount, tx2.amount);
-        return nameSimilarity * 0.7 + amountSimilarity * 0.3;
+        return nameSimilarity * 0.9 + amountSimilarity * 0.1;
     }
     calculateNameSimilarity(str1, str2) {
         const words1 = str1.toLowerCase().split(/\s+/);
@@ -11062,6 +11063,8 @@ class $224ed38d6831df23$var$ClaimManagementTool {
 document.addEventListener("DOMContentLoaded", async ()=>{
     window.claimTool = new $224ed38d6831df23$var$ClaimManagementTool();
 });
+
+
 
 
 
