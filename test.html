@@ -5895,7 +5895,16 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
     }
     handleNewPaste(pastedContents) {
         this.pastedContents = pastedContents;
-        this.parseClaimTransactions();
+        // If claim transactions are not set yet, parse them
+        if (this.claimTransactions.length === 0) this.parseClaimTransactions();
+        else {
+            // If claim transactions are already set, treat new content as non-claim transactions
+            const newTransactions = this.extractTransactions(pastedContents.join("\n"));
+            this.nonClaimTransactions = [
+                ...this.nonClaimTransactions,
+                ...newTransactions
+            ];
+        }
         this.compareTransactions();
         this.updateSimilarTransactions();
     }
@@ -5905,9 +5914,9 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
             console.warn("CCS content not found. Cannot parse claim transactions.");
             return;
         }
-        const transactions = this.extractTransactions(ccsContent);
-        this.displayClaimTransactions(transactions);
-        this.setOldestClaimTransaction(transactions);
+        this.claimTransactions = this.extractTransactions(ccsContent);
+        this.displayClaimTransactions(this.claimTransactions);
+        this.setOldestClaimTransaction(this.claimTransactions);
     }
     extractTransactions(text) {
         const scenarioMappings = this.getScenarioMappings();
@@ -6086,20 +6095,15 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
         });
     }
     updateSimilarTransactions() {
-        if (!this.isFraudScenario() || !this.oldestClaimTransaction) return;
-        const allTransactions = this.getAllTransactions();
+        if (!this.isFraudScenario() || this.claimTransactions.length === 0) return;
         const oldestDate = new Date(this.oldestClaimTransaction.date);
         const cutoffDate = new Date(oldestDate.getTime() - 5184000000);
-        const relevantTransactions = allTransactions.filter((t)=>new Date(t.date) >= cutoffDate);
-        const olderTransactions = allTransactions.filter((t)=>new Date(t.date) < cutoffDate);
-        this.claimTransactions = relevantTransactions.filter((t)=>t.isClaim);
-        this.nonClaimTransactions = [
-            ...relevantTransactions,
-            ...olderTransactions
-        ].filter((t)=>!t.isClaim);
+        const relevantNonClaimTransactions = this.nonClaimTransactions.filter((t)=>new Date(t.date) >= cutoffDate);
+        const olderNonClaimTransactions = this.nonClaimTransactions.filter((t)=>new Date(t.date) < cutoffDate);
         console.log("Claim Transactions:", this.claimTransactions);
-        console.log("Non-Claim Transactions:", this.nonClaimTransactions);
-        this.similarTransactions = this.findSimilarTransactions();
+        console.log("Relevant Non-Claim Transactions:", relevantNonClaimTransactions);
+        console.log("Older Non-Claim Transactions:", olderNonClaimTransactions);
+        this.similarTransactions = this.findSimilarTransactions(relevantNonClaimTransactions, olderNonClaimTransactions);
         console.log("Similar Transactions:", this.similarTransactions);
         this.updateSimilarTransactionsUI();
     }
@@ -6115,10 +6119,13 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
                 isClaim: !row.classList.contains("non-claim-transaction")
             }));
     }
-    findSimilarTransactions() {
+    findSimilarTransactions(relevantNonClaimTransactions, olderNonClaimTransactions) {
         const similarGroups = [];
         this.claimTransactions.forEach((claimTx)=>{
-            const similarNonClaims = this.nonClaimTransactions.map((nonClaimTx)=>({
+            const similarNonClaims = [
+                ...relevantNonClaimTransactions,
+                ...olderNonClaimTransactions
+            ].map((nonClaimTx)=>({
                     ...nonClaimTx,
                     similarityScore: this.calculateSimilarity(claimTx, nonClaimTx)
                 })).filter((tx)=>tx.similarityScore >= this.similarityThreshold).sort((a, b)=>b.similarityScore - a.similarityScore);
