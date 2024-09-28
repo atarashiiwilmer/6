@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Comparison Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        #similarityScore {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Transaction Comparison Tool</h1>
+    <textarea id="inputText" placeholder="Paste transaction data here..."></textarea>
+    <h2>Claim Transactions</h2>
+    <table id="claimTable">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <h2>Similar Transactions</h2>
+    <div id="similarityScore"></div>
+    <table id="similarTable">
+        <thead>
+            <tr>
+                <th>Claim Transaction</th>
+                <th>Similar Transaction</th>
+                <th>Similarity Score</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        const inputText = document.getElementById('inputText');
+        const claimTable = document.getElementById('claimTable');
+        const similarTable = document.getElementById('similarTable');
+        const similarityScoreElement = document.getElementById('similarityScore');
+
+        let claimTransactions = [];
+        let nonClaimTransactions = [];
+
+        inputText.addEventListener('input', processInput);
+
+        function processInput() {
+            const text = inputText.value;
+            
+            // Extract claim transactions
+            const claimMatch = text.match(/Transactions:\n([\s\S]*?)\nNotification Preference/);
+            if (claimMatch) {
+                claimTransactions = claimMatch[1].trim().split('\n').filter(Boolean);
+            }
+
+            // Extract non-claim transactions
+            const nonClaimMatch = text.match(/Pilipinas([\s\S]*?)Salamat/);
+            if (nonClaimMatch) {
+                nonClaimTransactions = nonClaimMatch[1].trim().split('\n').filter(Boolean);
+            }
+
+            inputText.value = '';
+            updateTables();
+        }
+
+        function updateTables() {
+            updateClaimTable();
+            updateSimilarTable();
+        }
+
+        function updateClaimTable() {
+            const tbody = claimTable.querySelector('tbody');
+            tbody.innerHTML = '';
+
+            claimTransactions.forEach(transaction => {
+                const [date, , , description, amount] = transaction.split('\t');
+                const row = tbody.insertRow();
+                row.insertCell().textContent = date;
+                row.insertCell().textContent = description;
+                row.insertCell().textContent = amount;
+            });
+        }
+
+        function updateSimilarTable() {
+            const tbody = similarTable.querySelector('tbody');
+            tbody.innerHTML = '';
+
+            let totalSimilarity = 0;
+            let comparisonCount = 0;
+
+            claimTransactions.forEach(claimTransaction => {
+                const claimDesc = getDescription(claimTransaction);
+
+                nonClaimTransactions.forEach(nonClaimTransaction => {
+                    if (nonClaimTransaction) {
+                        const nonClaimDesc = nonClaimTransaction.trim();
+                        const similarity = calculateSimilarity(claimDesc, nonClaimDesc);
+
+                        if (similarity >= 0.3) {
+                            const row = tbody.insertRow();
+                            row.insertCell().textContent = claimDesc;
+                            row.insertCell().textContent = nonClaimDesc;
+                            row.insertCell().textContent = `${(similarity * 100).toFixed(2)}%`;
+
+                            totalSimilarity += similarity;
+                            comparisonCount++;
+                        }
+                    }
+                });
+            });
+
+            const averageSimilarity = comparisonCount > 0 ? totalSimilarity / comparisonCount : 0;
+            similarityScoreElement.textContent = `Average Similarity Score: ${(averageSimilarity * 100).toFixed(2)}%`;
+        }
+
+        function getDescription(transaction) {
+            const parts = transaction.split('\t');
+            return parts.length >= 4 ? parts[3] : transaction;
+        }
+
+        function calculateSimilarity(str1, str2) {
+            if (!str1 || !str2) return 0;
+
+            const words1 = str1.toLowerCase().split(/\s+/);
+            const words2 = str2.toLowerCase().split(/\s+/);
+
+            const commonWords = words1.filter(word => words2.includes(word));
+            const wordSimilarity = commonWords.length / Math.max(words1.length, words2.length);
+
+            if (wordSimilarity >= 0.3) {
+                return calculateCharacterSimilarity(str1, str2);
+            }
+
+            return wordSimilarity;
+        }
+
+        function calculateCharacterSimilarity(str1, str2) {
+            const longer = str1.length > str2.length ? str1 : str2;
+            const shorter = str1.length > str2.length ? str2 : str1;
+            const longerLength = longer.length;
+
+            if (longerLength === 0) {
+                return 1.0;
+            }
+
+            return (longerLength - editDistance(longer, shorter)) / longerLength;
+        }
+
+        function editDistance(s1, s2) {
+            s1 = s1.toLowerCase();
+            s2 = s2.toLowerCase();
+
+            const costs = new Array();
+            for (let i = 0; i <= s1.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= s2.length; j++) {
+                    if (i == 0)
+                        costs[j] = j;
+                    else {
+                        if (j > 0) {
+                            let newValue = costs[j - 1];
+                            if (s1.charAt(i - 1) != s2.charAt(j - 1))
+                                newValue = Math.min(Math.min(newValue, lastValue),
+                                    costs[j]) + 1;
+                            costs[j - 1] = lastValue;
+                            lastValue = newValue;
+                        }
+                    }
+                }
+                if (i > 0)
+                    costs[s2.length] = lastValue;
+            }
+            return costs[s2.length];
+        }
+    </script>
+</body>
+</html>
