@@ -6,7 +6,7 @@
     <link rel="icon" id="favicon" type="image/svg+xml">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Inter:wght@300;400;600&display=swap">
     
-    <script type="module" src="/serotonin.1665be6a.js"></script>
+    
   <style>:root {
   --gap: 12px;
   --border-radius: 12px;
@@ -3187,140 +3187,6 @@ select:focus, input:focus {
   position: absolute;
   inset: 0;
 }
-
-.skill-config-popover {
-  z-index: 1000;
-  background-color: #fff;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  width: 400px;
-  max-width: 90%;
-  max-height: 90vh;
-  padding: 20px;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  overflow-y: auto;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 2px 10px #0000001a;
-}
-
-.skill-config-popover h2 {
-  margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 1.2em;
-}
-
-.work-start-time {
-  margin-bottom: 15px;
-}
-
-.work-start-time label {
-  margin-bottom: 5px;
-  display: block;
-}
-
-.work-start-time select {
-  width: 100%;
-  padding: 5px;
-}
-
-.skill-config {
-  border: 1px solid #eee;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  padding: 10px;
-}
-
-.skill-config select {
-  width: 100%;
-  margin-bottom: 5px;
-  padding: 5px;
-}
-
-.time-range {
-  justify-content: space-between;
-  align-items: center;
-  display: flex;
-}
-
-.time-range select {
-  width: 45%;
-}
-
-.time-range span {
-  margin: 0 5px;
-}
-
-#addSkillButton {
-  color: #fff;
-  cursor: pointer;
-  background-color: #4caf50;
-  border: none;
-  border-radius: 4px;
-  width: 100%;
-  margin-bottom: 15px;
-  padding: 10px;
-}
-
-#addSkillButton:hover {
-  background-color: #45a049;
-}
-
-.configuration-summary, .chart-preview {
-  margin-top: 20px;
-}
-
-.configuration-summary h3, .chart-preview h3 {
-  margin-bottom: 10px;
-  font-size: 1.1em;
-}
-
-.chart-bars {
-  align-items: flex-end;
-  height: 100px;
-  margin-top: 10px;
-  display: flex;
-}
-
-.chart-bar {
-  flex: 1;
-  margin: 0 2px;
-  position: relative;
-}
-
-.hour-label {
-  border-radius: 2px;
-  padding: 2px 4px;
-  font-size: 10px;
-  position: absolute;
-  bottom: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.wip-notice {
-  color: #856404;
-  background-color: #fff3cd;
-  border: 1px solid #ffeeba;
-  border-radius: 4px;
-  margin-top: 20px;
-  padding: 10px;
-  font-size: .9em;
-}
-
-#skillConfigButton {
-  cursor: pointer;
-  background-color: #f0f0f0;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  margin-top: 10px;
-  padding: 5px 10px;
-}
-
-#skillConfigButton:hover {
-  background-color: #e0e0e0;
-}
 </style></head>
   <div id="landingPage" class="landing-page">
     <div class="lp-container">
@@ -6458,7 +6324,7 @@ class $d003afba564174ba$export$6cfe42a1ca6a97cb {
     }
 
     #xClaimTrans thead {
-        position: sticky;
+        position: relative;
         top: 0;
         z-index: 1;
     }
@@ -10268,26 +10134,40 @@ class $224ed38d6831df23$var$ClaimManagementTool {
     }
     handleInput(e) {
         const inputText = e.target.value;
-        this.pastedContents.push(inputText);
+        if (inputText.trim() !== "") {
+            this.pastedContents.push(inputText);
+            // Process the new content immediately
+            this.processNewContent(inputText);
+            // Clear the input textarea
+            e.target.value = "";
+        }
+    }
+    // Add this new method to process new content
+    processNewContent(content) {
         // Check for MMC
-        const mcAutoData = this.uniqueCaseHandler.checkForMMC(inputText);
+        const mcAutoData = this.uniqueCaseHandler.checkForMMC(content);
         if (mcAutoData) {
             const parsedClaim = {
                 mcAuto: mcAutoData
             };
             if (this.uniqueCaseHandler.handleMMC(parsedClaim)) {
-                // Update BigSteppersManager to show step 5
                 this.bigSteppersManager.currentStep = 3;
                 this.bigSteppersManager.showButtonsForStep(3);
             }
         }
-        // Process the input regardless of whether it's MMC or not
-        this.transactionManager.handleNewPaste(this.pastedContents);
+        this.transactionManager.handleNewPaste([
+            content
+        ]);
         this.updateContentState();
         this.updatePlaceholder();
-        this.processContents();
-        // Clear the input and update UI
-        e.target.value = "";
+        const parsedClaim = this.claimProcessor.parseClaimInfo(content);
+        this.updateResultBox(parsedClaim);
+        this.currentScenario = parsedClaim.scenario;
+        if (this.bigSteppersManager) this.bigSteppersManager.setCurrentScenario(this.currentScenario);
+        this.renderAnalysisFields(this.currentScenario, parsedClaim.analysis);
+        this.updateAnalysis(parsedClaim);
+        this.transactionManager.parseClaimTransactions();
+        this.updateNSFField();
     }
     updateContentState() {
         this.state.hasCCS = this.pastedContents.some((content)=>content.includes("Claim Display"));
@@ -10305,20 +10185,6 @@ class $224ed38d6831df23$var$ClaimManagementTool {
         } else if (hasCCS) placeholder = "Paste CA content here";
         else if (hasCA) placeholder = "Paste CCS content here";
         this.elements.xInput.placeholder = placeholder;
-    }
-    processContents() {
-        this.pastedContents.forEach((content)=>{
-            const parsedClaim = this.claimProcessor.parseClaimInfo(content);
-            console.log("Parsed Claim:", parsedClaim);
-            this.updateResultBox(parsedClaim);
-            this.currentScenario = parsedClaim.scenario;
-            this.renderAnalysisFields(this.currentScenario, parsedClaim.analysis);
-            this.updateAnalysis(parsedClaim);
-            // Update the BigSteppersManager with the current scenario
-            if (this.bigSteppersManager) this.bigSteppersManager.setCurrentScenario(this.currentScenario);
-            this.transactionManager.parseClaimTransactions();
-            this.updateNSFField();
-        });
     }
     calculateDateRanges() {
         const oldestTransaction = this.getOldestTransactionDate();
@@ -10876,29 +10742,46 @@ class $224ed38d6831df23$var$ClaimManagementTool {
         fraudOptions.style.display = isFraud ? "" : "none";
         nonFraudOptions.style.display = isFraud ? "none" : "";
     }
-    renderAnalysisFields(scenario) {
-        console.log(`Rendering analysis fields for scenario: ${scenario}`);
-        this.elements.analysisContainer.innerHTML = "";
+    renderAnalysisFields(scenario, analysisData) {
         const isFraud = this.claimProcessor.isFraudScenario(scenario);
-        console.log(`Is fraud scenario: ${isFraud}`);
+        if (isFraud) this.elements.analysisContainer.style.gridTemplateColumns = "1fr";
+        else this.elements.analysisContainer.style.gridTemplateColumns = "1fr 1fr";
         const questions = this.claimProcessor.getQuestionsForScenario(scenario);
-        console.log(`Number of questions for this scenario: ${questions.length}`);
         questions.forEach((q, index)=>{
-            console.log(`Rendering question ${index + 1}: ${isFraud ? "Fraud" : "Non-Fraud"} type`);
-            const fieldContainer = this.createFieldContainer(q, index, isFraud);
-            this.elements.analysisContainer.appendChild(fieldContainer);
-            if (!isFraud) {
-                const existingAnswer = this.analysisAnswers[index]?.answer;
-                console.log(`Existing answer for question ${index + 1}: "${existingAnswer}"`);
+            let fieldContainer = this.elements.analysisContainer.querySelector(`[data-question-index="${index}"]`);
+            if (!fieldContainer) {
+                fieldContainer = this.createFieldContainer(q, index, isFraud);
+                this.elements.analysisContainer.appendChild(fieldContainer);
+            }
+            if (isFraud) // For fraud scenarios, we don't pre-fill answers
+            this.analysisAnswers[index] = this.analysisAnswers[index] || {
+                answer: "",
+                state: "unanswered"
+            };
+            else {
+                // For non-fraud scenarios, use existing analysis if available
+                const existingAnswer = analysisData && analysisData[index] && analysisData[index].answer !== undefined ? analysisData[index].answer : this.analysisAnswers[index] ? this.analysisAnswers[index].answer : "";
+                if (scenario === "CNRX" && existingAnswer === "") {
+                    this.analysisAnswers[index] = {
+                        answer: "",
+                        state: "moreInfo"
+                    };
+                    fieldContainer.classList.add("more-info");
+                    const answerInput = fieldContainer.querySelector(".answer-input");
+                    if (answerInput) answerInput.style.display = "none";
+                } else this.analysisAnswers[index] = {
+                    answer: existingAnswer,
+                    state: existingAnswer !== "" ? "answered" : "unanswered"
+                };
                 const answerInput = fieldContainer.querySelector(".answer-input");
                 if (answerInput) {
-                    answerInput.value = existingAnswer || "";
-                    console.log(`Set input value for question ${index + 1}: "${answerInput.value}"`);
+                    answerInput.value = existingAnswer;
+                    this.updateAnalysisFieldStatus(fieldContainer, index);
                 }
             }
         });
-        console.log("Finished rendering analysis fields");
         this.updateAnalysisOutput();
+        this.updateBulkActionOptions();
     }
     updateAnalysisAnswer(index, value) {
         this.analysisAnswers[index] = {
@@ -10959,7 +10842,6 @@ class $224ed38d6831df23$var$ClaimManagementTool {
         questionText.className = "question-text";
         questionText.textContent = question.question;
         if (isFraud) {
-            console.log(`Adding fraud-specific elements for question ${index + 1}`);
             const greenContainer = this.createFraudFlagContainer("green", question.green);
             const redContainer = this.createFraudFlagContainer("red", question.red);
             const fraudInput = document.createElement("input");
@@ -10992,7 +10874,6 @@ class $224ed38d6831df23$var$ClaimManagementTool {
                 }
             });
         } else {
-            console.log(`Adding non-fraud input for question ${index + 1}`);
             const answerInput = document.createElement("input");
             answerInput.type = "text";
             answerInput.className = "answer-input";
@@ -11004,7 +10885,6 @@ class $224ed38d6831df23$var$ClaimManagementTool {
             fieldContainer.addEventListener("contextmenu", (e)=>this.handleNonFraudFieldRightClick(e, index));
         }
         fieldContainer.addEventListener("dblclick", (e)=>this.handleFieldDoubleClick(e, index));
-        console.log(`Field container created for question ${index + 1}`);
         return fieldContainer;
     }
     createFraudFlagContainer(type, text) {
